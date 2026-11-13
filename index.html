@@ -1,0 +1,743 @@
+
+
+<!doctype html>
+
+<html lang="ja">
+
+<head>
+
+<meta charset="utf-8">
+
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+
+<meta name="theme-color" content="#171717">
+
+<title>STORY GRID</title>
+
+<style>
+
+:root{--bg:#171717;--ink:#f2f2f2;--muted:#aaa;--line:#393939;--accent:#7398ff;--panel:#242424;--gap:6px}
+
+*{box-sizing:border-box}
+
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,sans-serif}
+
+header{height:56px;padding:0 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);background:var(--bg);position:sticky;top:0;z-index:5}
+
+.brand{font-size:14px;font-weight:800;letter-spacing:2px}
+
+.sub{font-size:10px;color:var(--muted);letter-spacing:1px}
+
+main{max-width:780px;margin:auto;padding:14px 14px 120px}
+
+.toolbar{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap}
+
+select,button{font:inherit}
+
+select{background:#292929;border:1px solid var(--line);border-radius:10px;padding:9px 10px;color:var(--ink)}
+
+button{border:1px solid var(--line);background:#292929;border-radius:10px;padding:10px 12px;color:var(--ink);font-size:13px;cursor:pointer}
+
+button.primary{background:var(--accent);color:white;border-color:var(--accent);font-weight:700}
+
+button:disabled{opacity:.4}
+
+.canvas-wrap{display:flex;justify-content:center;align-items:center;padding:8px 0 16px}
+
+#canvas{width:min(76vw,360px);max-height:58vh;aspect-ratio:9/16;background:#fff;display:flex;overflow:hidden;box-shadow:0 8px 28px #0002;touch-action:pan-y;position:relative}
+
+.node{display:flex;min-width:0;min-height:0;position:relative;overflow:hidden}
+
+.node.row{flex-direction:row}
+
+.node.col{flex-direction:column}
+
+.leaf{flex:1;background:#e9e7e2;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;min-width:0;min-height:0}
+
+.leaf.selected{outline:3px solid var(--accent);outline-offset:-3px}
+
+.leaf img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+
+.placeholder{font-size:11px;color:#89867f;text-align:center;line-height:1.7;padding:4px}
+
+.splitter{flex:none;background:#fff;position:relative;z-index:2;touch-action:none}
+
+.splitter.row{width:var(--gap);cursor:col-resize}
+
+.splitter.col{height:var(--gap);cursor:row-resize}
+
+.splitter:after{content:"";position:absolute;background:#aaa;border-radius:4px}
+
+.splitter.row:after{width:2px;height:24px;left:50%;top:50%;transform:translate(-50%,-50%)}
+
+.splitter.col:after{height:2px;width:24px;left:50%;top:50%;transform:translate(-50%,-50%)}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;margin:10px 0}
+
+.panel h3{font-size:12px;margin:0 0 10px;letter-spacing:.5px}
+
+.actions{display:flex;gap:7px;flex-wrap:wrap}
+
+.actions button{flex:1;min-width:88px}
+
+.rowline{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:9px 0;font-size:12px}
+
+input[type=range]{width:48%;accent-color:var(--accent)}
+
+.small{font-size:11px;color:var(--muted);line-height:1.6}
+
+.templates{display:flex;gap:8px;overflow-x:auto;padding:2px 0 6px}
+
+.template{min-width:76px;text-align:center;font-size:10px;color:var(--muted)}
+
+.template button{width:76px;height:72px;padding:7px;display:flex;align-items:center;justify-content:center}
+
+.mini{width:48px;height:58px;display:flex;gap:2px;background:#eee;padding:2px}
+
+.mini span{display:block;background:#aaa;flex:1}
+
+.bottom{position:fixed;bottom:0;left:0;right:0;background:#202020f2;backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:10px 12px calc(10px + env(safe-area-inset-bottom));z-index:10}
+
+.bottominner{max-width:780px;margin:auto;display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+
+.bottom button{padding:10px 4px;font-size:11px}
+
+.bottom button span{display:block;font-size:17px;margin-bottom:3px}
+
+#file{display:none}
+
+@media(min-width:700px){
+
+main{padding-top:24px}
+
+#canvas{width:min(40vw,360px);max-height:65vh}
+
+.workspace{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start}
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+
+<div><div class="brand">STORY GRID</div><div class="sub">YOUR LAYOUT STUDIO</div></div>
+
+<button id="reset">新規作成</button>
+
+</header>
+
+<main>
+
+<div class="toolbar">
+
+<div>
+
+<div class="sub">CANVAS SIZE</div>
+
+<select id="ratio">
+
+<option value="9/16">Instagram ストーリー・リール 9:16</option>
+
+<option value="4/5">Instagram 縦長 4:5</option>
+
+<option value="1/1">正方形 1:1</option>
+
+<option value="1.91/1">Instagram 横長 1.91:1</option>
+
+<option value="16/9">X 横長 16:9</option>
+
+<option value="3/4">X 縦長 3:4</option>
+
+</select>
+
+</div>
+
+<button id="export" class="primary">画像を書き出す</button>
+
+</div>
+
+<div class="workspace">
+
+<section>
+
+<div class="canvas-wrap"><div id="canvas"></div></div>
+
+<div class="small" style="text-align:center">コマをタップして選択・写真を追加。白い境界線をドラッグすると比率を変更できます。</div>
+
+</section>
+
+<section>
+
+<div class="panel">
+
+<h3>選択中のコマ</h3>
+
+<div class="actions">
+
+<button id="addPhoto">写真を入れる</button>
+
+<button id="splitV">左右に分割</button>
+
+<button id="splitH">上下に分割</button>
+
+</div>
+
+<div class="actions" style="margin-top:7px">
+
+<button id="remove">分割を戻す</button>
+
+<button id="clearPhoto">写真を外す</button>
+
+</div>
+
+<p class="small">分割は選択したコマの中に追加されます。分割線を動かして好きな大きさに調整できます。</p>
+
+</div>
+
+<div class="panel">
+
+<h3>デザイン</h3>
+
+<div class="rowline">
+
+<label for="gap">コマの間隔</label>
+
+<input id="gap" type="range" min="0" max="24" value="6">
+
+<b id="gapVal">6px</b>
+
+</div>
+
+<div class="rowline">
+
+<label for="bg">背景色</label>
+
+<input id="bg" type="color" value="#ffffff">
+
+</div>
+
+</div>
+
+<div class="panel">
+
+<h3>レイアウトテンプレート</h3>
+
+<div class="templates" id="templates"></div>
+
+<div class="actions">
+
+<button id="saveTemplate">現在のコマ割りを保存</button>
+
+</div>
+
+<p class="small">保存したテンプレートはこのiPhoneのブラウザ内に保存されます。</p>
+
+</div>
+
+</section>
+
+</div>
+
+<input id="file" type="file" accept="image/*">
+
+</main>
+
+<div class="bottom">
+
+<div class="bottominner">
+
+<button id="tabLayout"><span>▦</span>コマ割り</button>
+
+<button id="tabPhoto"><span>▧</span>写真</button>
+
+<button id="tabDesign"><span>◐</span>デザイン</button>
+
+<button id="tabExport"><span>⇧</span>書き出し</button>
+
+</div>
+
+</div>
+
+<script>
+
+const $=id=>document.getElementById(id);
+
+let tree={type:'leaf',id:1,src:null};
+
+let selected=1,nextId=2,gap=6,bg='#ffffff';
+
+const clone=x=>JSON.parse(JSON.stringify(x));
+
+function find(n,id){
+
+if(n.id===id)return n;
+
+if(n.type==='split')return find(n.a,id)||find(n.b,id);
+
+return null;
+
+}
+
+function parentOf(n,id){
+
+if(n.type!=='split')return null;
+
+if(n.a.id===id||n.b.id===id)return {parent:n,side:n.a.id===id?'a':'b'};
+
+return parentOf(n.a,id)||parentOf(n.b,id);
+
+}
+
+function renderNode(n){
+
+if(n.type==='leaf'){
+
+const d=document.createElement('div');
+
+d.className='leaf'+(n.id===selected?' selected':'');
+
+if(n.src){
+
+const im=document.createElement('img');
+
+im.src=n.src;
+
+d.append(im);
+
+}else{
+
+const p=document.createElement('div');
+
+p.className='placeholder';
+
+p.innerHTML='＋<br>写真を追加';
+
+d.append(p);
+
+}
+
+d.onclick=()=>{selected=n.id;render()};
+
+return d;
+
+}
+
+const wrap=document.createElement('div');
+
+wrap.className='node '+(n.axis==='v'?'row':'col');
+
+wrap.style.flex='1';
+
+const a=renderNode(n.a),b=renderNode(n.b);
+
+a.style.flex=n.ratio;
+
+b.style.flex=1-n.ratio;
+
+const bar=document.createElement('div');
+
+bar.className='splitter '+(n.axis==='v'?'row':'col');
+
+bar.addEventListener('pointerdown',e=>{
+
+e.preventDefault();
+
+bar.setPointerCapture(e.pointerId);
+
+const rect=wrap.getBoundingClientRect();
+
+const start=n.axis==='v'?e.clientX:e.clientY;
+
+const size=n.axis==='v'?rect.width:rect.height;
+
+const initial=n.ratio;
+
+const move=ev=>{
+
+const pos=n.axis==='v'?ev.clientX:ev.clientY;
+
+n.ratio=Math.max(.12,Math.min(.88,initial+(pos-start)/size));
+
+a.style.flex=n.ratio;
+
+b.style.flex=1-n.ratio;
+
+};
+
+const end=()=>{
+
+bar.removeEventListener('pointermove',move);
+
+bar.removeEventListener('pointerup',end);
+
+bar.removeEventListener('pointercancel',end);
+
+};
+
+bar.addEventListener('pointermove',move);
+
+bar.addEventListener('pointerup',end);
+
+bar.addEventListener('pointercancel',end);
+
+});
+
+wrap.append(a,bar,b);
+
+return wrap;
+
+}
+
+function render(){
+
+const c=$('canvas');
+
+c.innerHTML='';
+
+c.style.aspectRatio=$('ratio').value;
+
+c.style.background='#ffffff';
+
+c.style.setProperty('--gap',gap+'px');
+
+c.append(renderNode(tree));
+
+$('gapVal').textContent=gap+'px';
+
+}
+
+function split(axis){
+
+const n=find(tree,selected);
+
+if(!n||n.type!=='leaf')return;
+
+const oldSrc=n.src;
+
+Object.assign(n,{
+
+type:'split',axis,ratio:.5,
+
+a:{type:'leaf',id:nextId++,src:oldSrc},
+
+b:{type:'leaf',id:nextId++,src:null}
+
+});
+
+selected=n.b.id;
+
+render();
+
+}
+
+function removeSplit(){
+
+const p=parentOf(tree,selected);
+
+if(!p)return;
+
+const keep=p.parent[p.side==='a'?'b':'a'];
+
+const target=p.parent;
+
+Object.keys(target).forEach(k=>delete target[k]);
+
+Object.assign(target,clone(keep));
+
+selected=target.id;
+
+render();
+
+}
+
+function loadPhoto(file){
+
+if(!file)return;
+
+const url=URL.createObjectURL(file);
+
+const n=find(tree,selected);
+
+if(n&&n.type==='leaf'){n.src=url;render()}
+
+}
+
+$('file').onchange=e=>loadPhoto(e.target.files[0]);
+
+$('addPhoto').onclick=()=>$('file').click();
+
+$('splitV').onclick=()=>split('v');
+
+$('splitH').onclick=()=>split('h');
+
+$('remove').onclick=removeSplit;
+
+$('clearPhoto').onclick=()=>{
+
+const n=find(tree,selected);
+
+if(n&&n.type==='leaf'){n.src=null;render()}
+
+};
+
+$('ratio').onchange=render;
+
+$('gap').oninput=e=>{gap=+e.target.value;render()};
+
+$('bg').oninput=e=>{bg=e.target.value;render()};
+
+$('reset').onclick=()=>{
+
+if(confirm('現在のレイアウトをリセットしますか？')){
+
+tree={type:'leaf',id:nextId++,src:null};
+
+selected=tree.id;
+
+render();
+
+}
+
+};
+
+const presets=[
+
+['2分割',()=>({type:'split',id:nextId++,axis:'h',ratio:.5,a:{type:'leaf',id:nextId++,src:null},b:{type:'leaf',id:nextId++,src:null}})],
+
+['3コマ',()=>({type:'split',id:nextId++,axis:'h',ratio:.55,a:{type:'leaf',id:nextId++,src:null},b:{type:'split',id:nextId++,axis:'v',ratio:.5,a:{type:'leaf',id:nextId++,src:null},b:{type:'leaf',id:nextId++,src:null}}})],
+
+['4分割',()=>({type:'split',id:nextId++,axis:'h',ratio:.5,a:{type:'split',id:nextId++,axis:'v',ratio:.5,a:{type:'leaf',id:nextId++,src:null},b:{type:'leaf',id:nextId++,src:null}},b:{type:'split',id:nextId++,axis:'v',ratio:.5,a:{type:'leaf',id:nextId++,src:null},b:{type:'leaf',id:nextId++,src:null}}})],
+
+['大1＋小3',()=>({type:'split',id:nextId++,axis:'h',ratio:.58,a:{type:'leaf',id:nextId++,src:null},b:{type:'split',id:nextId++,axis:'v',ratio:.5,a:{type:'leaf',id:nextId++,src:null},b:{type:'split',id:nextId++,axis:'h',ratio:.5,a:{type:'leaf',id:nextId++,src:null},b:{type:'leaf',id:nextId++,src:null}}}})]
+
+];
+
+function showTemplates(){
+
+const el=$('templates');
+
+el.innerHTML='';
+
+presets.forEach(([name,fn])=>{
+
+const wrap=document.createElement('div');
+
+wrap.className='template';
+
+const b=document.createElement('button');
+
+b.textContent='▦';
+
+b.onclick=()=>{
+
+tree=fn();
+
+selected=tree.a.id;
+
+render();
+
+};
+
+wrap.append(b,document.createElement('div'));
+
+wrap.lastChild.textContent=name;
+
+el.append(wrap);
+
+});
+
+let saved=[];
+
+try{saved=JSON.parse(localStorage.getItem('sg_templates')||'[]')}catch{}
+
+saved.forEach((t,i)=>{
+
+const w=document.createElement('div');
+
+w.className='template';
+
+const b=document.createElement('button');
+
+b.textContent='▦';
+
+b.onclick=()=>{
+
+tree=clone(t.tree);
+
+reId(tree);
+
+selected=firstLeaf(tree).id;
+
+render();
+
+};
+
+const del=document.createElement('button');
+
+del.textContent='×';
+
+del.style.padding='3px';
+
+del.onclick=()=>{
+
+saved.splice(i,1);
+
+localStorage.setItem('sg_templates',JSON.stringify(saved));
+
+showTemplates();
+
+};
+
+w.append(b,document.createTextNode(t.name+' '),del);
+
+el.append(w);
+
+});
+
+}
+
+function firstLeaf(n){return n.type==='leaf'?n:firstLeaf(n.a)}
+
+function reId(n){
+
+n.id=nextId++;
+
+if(n.type==='split'){reId(n.a);reId(n.b)}
+
+}
+
+$('saveTemplate').onclick=()=>{
+
+const name=prompt('テンプレート名を入力してください');
+
+if(!name)return;
+
+let saved=[];
+
+try{saved=JSON.parse(localStorage.getItem('sg_templates')||'[]')}catch{}
+
+const clean=clone(tree);
+
+function strip(n){
+
+if(n.type==='leaf')n.src=null;
+
+else{strip(n.a);strip(n.b)}
+
+}
+
+strip(clean);
+
+saved.push({name,tree:clean});
+
+localStorage.setItem('sg_templates',JSON.stringify(saved));
+
+showTemplates();
+
+alert('テンプレートを保存しました');
+
+};
+
+async function exportImage(){
+
+const canvas=document.createElement('canvas');
+
+const r=$('ratio').value.split('/').map(Number);
+
+let w=1080,h=Math.round(1080*r[1]/r[0]);
+
+if(r[0]/r[1]<.8){h=1920;w=Math.round(1920*r[0]/r[1])}
+
+canvas.width=w;canvas.height=h;
+
+const ctx=canvas.getContext('2d');
+
+ctx.fillStyle='#ffffff';
+
+ctx.fillRect(0,0,w,h);
+
+async function draw(n,x,y,ww,hh){
+
+if(n.type==='leaf'){
+
+if(n.src){
+
+const im=new Image();
+
+im.src=n.src;
+
+await im.decode();
+
+const ir=im.width/im.height,cr=ww/hh;
+
+let sx=0,sy=0,sw=im.width,sh=im.height;
+
+if(ir>cr){sw=im.height*cr;sx=(im.width-sw)/2}
+
+else{sh=im.width/cr;sy=(im.height-sh)/2}
+
+ctx.drawImage(im,sx,sy,sw,sh,x,y,ww,hh);
+
+}
+
+return;
+
+}
+
+const g=gap*(w/$('canvas').clientWidth);
+
+if(n.axis==='v'){
+
+const aw=(ww-g)*n.ratio;
+
+await draw(n.a,x,y,aw,hh);
+
+await draw(n.b,x+aw+g,y,ww-aw-g,hh);
+
+}else{
+
+const ah=(hh-g)*n.ratio;
+
+await draw(n.a,x,y,ww,ah);
+
+await draw(n.b,x,y+ah+g,ww,hh-ah-g);
+
+}
+
+}
+
+await draw(tree,0,0,w,h);
+
+const a=document.createElement('a');
+
+a.download='story-grid.png';
+
+a.href=canvas.toDataURL('image/png');
+
+a.click();
+
+}
+
+$('export').onclick=exportImage;
+
+$('tabLayout').onclick=()=>$('splitV').scrollIntoView({behavior:'smooth',block:'center'});
+
+$('tabPhoto').onclick=()=>$('addPhoto').click();
+
+$('tabDesign').onclick=()=>$('gap').scrollIntoView({behavior:'smooth',block:'center'});
+
+$('tabExport').onclick=exportImage;
+
+showTemplates();
+
+render();
+
+</script>
+
+</body>
+
+</html>
