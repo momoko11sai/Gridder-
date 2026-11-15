@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#101010">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Gridder</title>
+<style>
+:root{color-scheme:dark;--bg:#101010;--panel:#1c1c1e;--accent:#ff3b70}
+*{box-sizing:border-box;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html,body{margin:0;width:100%;height:100%;background:var(--bg);color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;overscroll-behavior:none;touch-action:manipulation}
+body{height:100dvh;min-height:0;display:flex;flex-direction:column;padding:env(safe-area-inset-top) 12px env(safe-area-inset-bottom);gap:8px;overflow:hidden}
+header{height:40px;min-height:40px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none;min-width:0}
+.brandbox{min-width:0;flex:1}
+.brand{font-size:20px;font-weight:800;letter-spacing:-.5px;line-height:1.1;white-space:nowrap}
+.topbar{display:flex;align-items:center;gap:6px;flex:none;min-width:0}
+select,button,input{font:inherit;color:inherit}
+select,button{background:var(--panel);border:1px solid #333;border-radius:11px}
+select{font-size:12px;padding:8px 7px;width:clamp(112px,34vw,142px);min-width:0}
+.iconbtn{width:35px;height:35px;flex:none;padding:0;display:grid;place-items:center;font-size:18px;color:var(--accent)}
+.export{font-size:11px;padding:8px 9px;white-space:nowrap}
+.stage{min-height:0;flex:1;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.wrap{position:relative;flex:none}
+#preview{display:block;width:100%;height:100%;background:#222;touch-action:none;border-radius:2px}
+#sel{position:absolute;display:none;border:3px solid #ff3b70;pointer-events:none;box-sizing:border-box}
+.controls{flex:none;background:var(--panel);border:1px solid #2c2c2e;border-radius:15px;padding:9px;display:flex;flex-direction:column;gap:8px;max-width:100%}
+.row{display:flex;align-items:center;gap:7px;min-width:0}
+.row label{font-size:11px;color:#bbb;white-space:nowrap}
+.row .grow{flex:1;min-width:30px}
+input[type=number]{width:55px;min-width:0;background:#111;border:1px solid #444;border-radius:8px;padding:6px;font-size:12px;-webkit-user-select:text;user-select:text}
+input[type=range]{width:100%;min-width:20px;accent-color:var(--accent)}
+input[type=color]{width:30px;height:28px;padding:0;border:0;background:none;flex:none}
+.presets,.tools{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.presets::-webkit-scrollbar,.tools::-webkit-scrollbar{display:none}
+.presets button,.tools button{white-space:nowrap;font-size:11px;padding:8px 10px;flex:none}
+.presets button.active{border-color:var(--accent);background:#3a1d29}
+@media(max-width:370px){
+ body{padding-left:9px;padding-right:9px;gap:6px}
+ .brand{font-size:18px}
+ .controls{padding:7px;gap:6px}
+ .presets button,.tools button{padding:7px 8px;font-size:10px}
+ .export{padding:7px 8px}
+}
+@media(orientation:landscape){
+ body{gap:5px}
+ header{height:32px;min-height:32px}
+ .controls{padding:6px;gap:5px}
+}
+#file{display:none}
+</style>
+</head>
+<body>
+<header>
+ <div class="brandbox"><div class="brand">Gridder</div></div>
+ <div class="topbar">
+  <select id="ratio" aria-label="キャンバス比率">
+   <option value="9:16">Story 9:16</option>
+   <option value="4:5">Instagram 4:5</option>
+   <option value="1:1">Square 1:1</option>
+   <option value="1.91:1">Wide 1.91:1</option>
+   <option value="16:9">X 16:9</option>
+   <option value="3:4">X 3:4</option>
+  </select>
+  <button class="iconbtn" id="saveTemplate" title="テンプレート保存">▣</button>
+  <button class="export" id="export">写真に保存</button>
+ </div>
+</header>
+
+<main class="stage" id="stage">
+ <div class="wrap" id="wrap">
+  <canvas id="preview" width="1080" height="1920"></canvas>
+  <div id="sel"></div>
+ </div>
+</main>
+
+<section class="controls">
+ <div class="row">
+  <label>余白</label>
+  <div class="grow"><input id="gap" type="range" min="0" max="60" value="8"></div>
+  <input id="gapNum" type="number" min="0" max="200" value="8">
+  <label>px</label>
+  <label>色</label>
+  <input id="bg" type="color" value="#ffffff">
+ </div>
+
+ <div class="presets" id="presets">
+  <button data-layout="h2" class="active">上下2分割</button>
+  <button data-layout="h3">上下3分割</button>
+  <button data-layout="h3middle">上下3分割・中央左右2分割</button>
+  <button data-layout="v2">左右2分割</button>
+  <button data-layout="grid4">2×2</button>
+  <button data-layout="big3">大1＋小3</button>
+ </div>
+
+ <div class="tools">
+  <button id="add">＋ 写真追加</button>
+  <button id="rotate">↻ 90°回転</button>
+  <button id="delete">写真を削除</button>
+  <button id="clear">全消去</button>
+ </div>
+</section>
+
+<input id="file" type="file" accept="image/*" multiple>
+
+<script>
+(()=>{
+const $=id=>document.getElementById(id);
+const canvas=$('preview');
+const ctx=canvas.getContext('2d');
+const sel=$('sel');
+
+const ratios={'9:16':[9,16],'4:5':[4,5],'1:1':[1,1],'1.91:1':[1.91,1],'16:9':[16,9],'3:4':[3,4]};
+
+let ratio='9:16';
+let gap=8;
+let bg='#ffffff';
+let layout='h2';
+let cells=[];
+let selected=-1;
+let pending=-1;
+let CW=1080,CH=1920;   // 書き出し画像の実サイズ（プレビューと保存で共通）
+let raf=0;
+
+const defs={
+ h2:[[0,0,1,.5],[0,.5,1,.5]],
+ h3:[[0,0,1,1/3],[0,1/3,1,1/3],[0,2/3,1,1/3]],
+ h3middle:[[0,0,1,1/3],[0,1/3,.5,1/3],[.5,1/3,.5,1/3],[0,2/3,1,1/3]],
+ v2:[[0,0,.5,1],[.5,0,.5,1]],
+ grid4:[[0,0,.5,.5],[.5,0,.5,.5],[0,.5,.5,.5],[.5,.5,.5,.5]],
+ big3:[[0,0,.66,1],[.66,0,.34,1/3],[.66,1/3,.34,1/3],[.66,2/3,.34,1/3]]
+};
+
+function calcSize(){
+ const [rw,rh]=ratios[ratio];
+ CW=1080;
+ CH=Math.round(1080*rh/rw);
+ if(CH>5000){CH=5000;CW=Math.round(CH*rw/rh);}
+}
+
+function makeCells(key,keep){
+ const old=keep?cells.map(c=>({img:c.img,rot:c.rot})):[];
+ layout=key;
+ cells=defs[key].map((r,i)=>({
+  r:[...r],
+  img:old[i]?old[i].img:null,
+  scale:1,ox:0,oy:0,
+  rot:old[i]?old[i].rot:0
+ }));
+ selected=-1;
+ draw();
+ document.querySelectorAll('.presets button').forEach(b=>{
+  b.classList.toggle('active',b.dataset.layout===key);
+ });
+}
+
+function fitCanvas(){
+ const stage=$('stage');
+ const ar=CW/CH;
+ const maxW=stage.clientWidth;
+ const maxH=stage.clientHeight;
+ let w=maxW;
+ let h=w/ar;
+ if(h>maxH){h=maxH;w=h*ar;}
+ const wrap=$('wrap');
+ wrap.style.width=Math.max(1,w)+'px';
+ wrap.style.height=Math.max(1,h)+'px';
+}
+
+// 枠の位置。外周余白=gap、枠どうしの間隔=gap（隣り合う辺から gap/2 ずつ削る）
+function cellRect(c){
+ const [x,y,w,h]=c.r;
+ const g=gap;
+ const E=1e-6;
+ const aw=CW-2*g, ah=CH-2*g;
+ let l=g+x*aw, t=g+y*ah;
+ let r=g+(x+w)*aw, b=g+(y+h)*ah;
+ if(x>E)l+=g/2;
+ if(y>E)t+=g/2;
+ if(x+w<1-E)r-=g/2;
+ if(y+h<1-E)b-=g/2;
+ l=Math.round(l);t=Math.round(t);r=Math.round(r);b=Math.round(b);
+ return {x:l,y:t,w:Math.max(1,r-l),h:Math.max(1,b-t)};
+}
+
+function clampPan(c){
+ if(!c.img)return;
+ const r=cellRect(c);
+ let iw=c.img.naturalWidth, ih=c.img.naturalHeight;
+ if(Math.abs(c.rot)%180===90)[iw,ih]=[ih,iw];
+ const s=Math.max(r.w/iw,r.h/ih)*c.scale;
+ const mx=Math.max(0,(iw*s-r.w)/2/r.w);
+ const my=Math.max(0,(ih*s-r.h)/2/r.h);
+ c.ox=Math.max(-mx,Math.min(mx,c.ox));
+ c.oy=Math.max(-my,Math.min(my,c.oy));
+}
+
+// preview=true のときだけ、空き枠の「＋」表示を描く（保存画像には入れない）
+function render(cv,x,preview){
+ x.fillStyle=bg;
+ x.fillRect(0,0,CW,CH);
+ x.imageSmoothingEnabled=true;
+ x.imageSmoothingQuality='high';
+
+ cells.forEach(c=>{
+  const r=cellRect(c);
+  x.save();
+  x.beginPath();
+  x.rect(r.x,r.y,r.w,r.h);
+  x.clip();
+
+  if(c.img){
+   clampPan(c);
+   x.translate(r.x+r.w/2+c.ox*r.w, r.y+r.h/2+c.oy*r.h);
+   x.rotate(c.rot*Math.PI/180);
+   let iw=c.img.naturalWidth, ih=c.img.naturalHeight;
+   if(Math.abs(c.rot)%180===90)[iw,ih]=[ih,iw];
+   const s=Math.max(r.w/iw,r.h/ih)*c.scale;
+   // 回転後の見た目サイズ(iw,ih)ではなく、元画像サイズで描く
+   const ow=c.img.naturalWidth*s, oh=c.img.naturalHeight*s;
+   x.drawImage(c.img,-ow/2,-oh/2,ow,oh);
+  }else if(preview){
+   x.fillStyle='#29292b';
+   x.fillRect(r.x,r.y,r.w,r.h);
+   x.fillStyle='#777';
+   x.font=`bold ${Math.max(24,Math.min(CW,CH)*.035)}px sans-serif`;
+   x.textAlign='center';
+   x.textBaseline='middle';
+   x.fillText('+',r.x+r.w/2,r.y+r.h/2);
+  }
+  x.restore();
+ });
+}
+
+// 赤い選択枠は canvas とは別の div。保存画像には含まれない
+function updateSel(){
+ if(selected<0||!cells[selected]){sel.style.display='none';return;}
+ const r=cellRect(cells[selected]);
+ sel.style.display='block';
+ sel.style.left=(r.x/CW*100)+'%';
+ sel.style.top=(r.y/CH*100)+'%';
+ sel.style.width=(r.w/CW*100)+'%';
+ sel.style.height=(r.h/CH*100)+'%';
+}
+
+function draw(){
+ if(raf)return;
+ raf=requestAnimationFrame(()=>{
+  raf=0;
+  if(canvas.width!==CW)canvas.width=CW;
+  if(canvas.height!==CH)canvas.height=CH;
+  render(canvas,ctx,true);
+  fitCanvas();
+  updateSel();
+ });
+}
+
+function pos(e){
+ const b=canvas.getBoundingClientRect();
+ return {x:(e.clientX-b.left)/b.width*CW, y:(e.clientY-b.top)/b.height*CH};
+}
+
+function hit(p){
+ for(let i=cells.length-1;i>=0;i--){
+  const r=cellRect(cells[i]);
+  if(p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h)return i;
+ }
+ return -1;
+}
+
+// ---- タッチ操作（ドラッグ／ピンチ） ----
+const ptrs=new Map();
+let gest=null;
+let moved=false;
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+
+function startPan(p){
+ const c=cells[selected];
+ if(!c||!c.img){gest=null;return;}
+ const r=cellRect(c);
+ gest={type:'pan',x:p.x,y:p.y,ox:c.ox,oy:c.oy,w:r.w,h:r.h};
+}
+
+canvas.addEventListener('pointerdown',e=>{
+ const p=pos(e);
+ ptrs.set(e.pointerId,p);
+ try{canvas.setPointerCapture(e.pointerId);}catch{}
+
+ if(ptrs.size===1){
+  moved=false;
+  const i=hit(p);
+  if(i<0){selected=-1;gest=null;draw();return;}
+  selected=i;
+  startPan(p);
+  draw();
+ }else if(ptrs.size===2&&selected>=0&&cells[selected].img){
+  const [a,b]=[...ptrs.values()];
+  gest={type:'pinch',d:Math.max(1,dist(a,b)),s:cells[selected].scale};
+  moved=true;
+ }
+});
+
+canvas.addEventListener('pointermove',e=>{
+ if(!ptrs.has(e.pointerId))return;
+ const p=pos(e);
+ ptrs.set(e.pointerId,p);
+ if(!gest||selected<0)return;
+ const c=cells[selected];
+
+ if(gest.type==='pan'&&ptrs.size===1){
+  if(!moved&&Math.hypot(p.x-gest.x,p.y-gest.y)<8)return;
+  moved=true;
+  c.ox=gest.ox+(p.x-gest.x)/gest.w;
+  c.oy=gest.oy+(p.y-gest.y)/gest.h;
+  clampPan(c);
+  draw();
+ }else if(gest.type==='pinch'&&ptrs.size>=2){
+  const [a,b]=[...ptrs.values()];
+  c.scale=Math.max(1,Math.min(8,gest.s*dist(a,b)/gest.d));
+  clampPan(c);
+  draw();
+ }
+});
+
+function endPtr(e){
+ ptrs.delete(e.pointerId);
+ if(ptrs.size===1&&selected>=0){
+  startPan([...ptrs.values()][0]);   // ピンチ後、残った指で続けてドラッグ
+  moved=true;
+ }else if(ptrs.size===0){
+  gest=null;
+ }
+}
+canvas.addEventListener('pointerup',endPtr);
+canvas.addEventListener('pointercancel',endPtr);
+
+// 空き枠は「タップ」で写真選択（ドラッグ後は開かない）
+canvas.addEventListener('click',e=>{
+ if(moved)return;
+ const i=hit(pos(e));
+ if(i>=0&&!cells[i].img)openPicker(i);
+});
+
+// キャンバスの外（黒い背景部分）をタップしたら選択解除
+$('stage').addEventListener('pointerdown',e=>{
+ if(e.target===$('stage')&&selected>=0){selected=-1;draw();}
+});
+
+function openPicker(i){
+ pending=i;
+ $('file').click();
+}
+
+$('file').addEventListener('change',e=>{
+ const files=[...e.target.files];
+ if(!files.length)return;
+
+ const start=pending>=0?pending:Math.max(0,cells.findIndex(c=>!c.img));
+
+ files.forEach((f,n)=>{
+  const idx=start+n;
+  if(idx>=cells.length)return;
+  const url=URL.createObjectURL(f);
+  const im=new Image();
+  im.onload=()=>{
+   const c=cells[idx];
+   c.img=im;c.scale=1;c.ox=0;c.oy=0;c.rot=0;
+   selected=idx;
+   draw();
+   URL.revokeObjectURL(url);
+  };
+  im.onerror=()=>URL.revokeObjectURL(url);
+  im.src=url;
+ });
+
+ pending=-1;
+ e.target.value='';
+});
+
+$('add').onclick=()=>{
+ openPicker(selected>=0?selected:Math.max(0,cells.findIndex(c=>!c.img)));
+};
+
+$('rotate').onclick=()=>{
+ if(selected>=0&&cells[selected].img){
+  const c=cells[selected];
+  c.rot=(c.rot+90)%360;
+  clampPan(c);
+  draw();
+ }
+};
+
+$('delete').onclick=()=>{
+ if(selected>=0){
+  const c=cells[selected];
+  c.img=null;c.scale=1;c.ox=0;c.oy=0;c.rot=0;
+  draw();
+ }
+};
+
+$('clear').onclick=()=>{
+ cells.forEach(c=>{c.img=null;c.scale=1;c.ox=0;c.oy=0;c.rot=0;});
+ selected=-1;
+ draw();
+};
+
+$('presets').addEventListener('click',e=>{
+ const b=e.target.closest('button[data-layout]');
+ if(b)makeCells(b.dataset.layout,true);
+});
+
+$('ratio').onchange=e=>{
+ ratio=e.target.value;
+ calcSize();
+ draw();
+};
+
+$('gap').oninput=e=>{
+ gap=+e.target.value;
+ $('gapNum').value=gap;
+ draw();
+};
+
+$('gapNum').onchange=e=>{
+ gap=Math.max(0,Math.min(200,+e.target.value||0));
+ $('gap').value=Math.min(60,gap);
+ e.target.value=gap;
+ draw();
+};
+
+$('bg').oninput=e=>{
+ bg=e.target.value;
+ draw();
+};
+
+$('saveTemplate').onclick=()=>{
+ localStorage.setItem('gridder-template',JSON.stringify({ratio,gap,bg,layout}));
+ alert('テンプレートを保存しました');
+};
+
+// 保存用：選択枠・＋表示のない画像を、別のcanvasに描いて書き出す
+$('export').onclick=async()=>{
+ const button=$('export');
+ button.disabled=true;
+ try{
+  const off=document.createElement('canvas');
+  off.width=CW;
+  off.height=CH;
+  render(off,off.getContext('2d'),false);
+
+  const blob=await new Promise(resolve=>off.toBlob(resolve,'image/png'));
+  if(!blob)throw new Error('PNGを作成できませんでした');
+
+  const file=new File([blob],'Gridder.png',{type:'image/png'});
+
+  if(navigator.canShare&&navigator.share&&navigator.canShare({files:[file]})){
+   await navigator.share({files:[file],title:'Gridder'});
+  }else{
+   const url=URL.createObjectURL(blob);
+   const a=document.createElement('a');
+   a.href=url;
+   a.download='Gridder.png';
+   a.click();
+   setTimeout(()=>URL.revokeObjectURL(url),30000);
+   alert('このブラウザでは写真アプリへの直接共有に対応していないため、PNGファイルとして保存しました。');
+  }
+ }catch(err){
+  if(err.name!=='AbortError'){
+   alert('保存できませんでした。Safariで開き直して、もう一度お試しください。');
+  }
+ }finally{
+  button.disabled=false;
+ }
+};
+
+document.addEventListener('contextmenu',e=>e.preventDefault());
+document.addEventListener('selectstart',e=>{
+ if(!e.target.matches||!e.target.matches('input'))e.preventDefault();
+});
+
+window.addEventListener('resize',fitCanvas);
+if(window.ResizeObserver)new ResizeObserver(fitCanvas).observe($('stage'));
+
+// 起動時
+calcSize();
+makeCells('h2');
+
+try{
+ const saved=localStorage.getItem('gridder-template');
+ if(saved){
+  const s=JSON.parse(saved);
+  if(ratios[s.ratio])ratio=s.ratio;
+  gap=s.gap??gap;
+  bg=s.bg||bg;
+  $('ratio').value=ratio;
+  $('gap').value=Math.min(60,gap);
+  $('gapNum').value=gap;
+  $('bg').value=bg;
+  calcSize();
+  makeCells(defs[s.layout]?s.layout:'h2');
+ }
+}catch{}
+
+})();
+</script>
+</body>
+</html>
